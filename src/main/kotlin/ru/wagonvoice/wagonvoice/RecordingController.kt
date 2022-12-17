@@ -17,11 +17,11 @@ class RecordingController(private val fileService: FileService) {
         return fileService.uploadFile(file)
     }
 
-    @GetMapping("/recording/xlsx/{fileId}")
+    @GetMapping("/recording/{fileId}")
     fun download(@PathVariable fileId: String): ResponseEntity<Resource?>? {
-        val file: Resource = fileService.downloadXlsx(fileId)
+        val file: Resource = fileService.downloadCsv(fileId)
         return ResponseEntity.ok()
-            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"$fileId\".xlsx")
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"$fileId\".txt")
             .body(file)
     }
 }

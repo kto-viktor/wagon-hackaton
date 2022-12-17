@@ -12,9 +12,6 @@ import org.vosk.Recognizer
 class WagonvoiceApplication {
     @Bean
     fun getModel() = Model("vosk-model-ru-0.22")
-
-    @Bean
-    fun recognizer(model: Model) = Recognizer(model, 70000.0F)
 }
 
 fun main(args: Array<String>) {
@@ -23,3 +20,5 @@ fun main(args: Array<String>) {
     runApplication<WagonvoiceApplication>(*args)
     println("after spring start")
 }
+
+
