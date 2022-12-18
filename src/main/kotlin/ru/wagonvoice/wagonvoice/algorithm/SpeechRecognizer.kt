@@ -1,6 +1,7 @@
-package ru.wagonvoice.wagonvoice
+package ru.wagonvoice.wagonvoice.algorithm
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.vosk.Model
 import org.vosk.Recognizer
@@ -11,19 +12,32 @@ import java.io.InputStream
 import javax.annotation.PostConstruct
 import javax.sound.sampled.AudioSystem
 
-
 @Service
 class SpeechRecognizer(private val model: Model, private val objectMapper: ObjectMapper) {
+    @Value("\${spring.main.web-application-type:}")
+    private lateinit var applicationType: String
+
     @PostConstruct
     fun init() {
-//        println("SpeechRecognizer init. Will recognize train_audio.wav")
-//        Thread {
-//            recognize(FileInputStream("train_audio.wav"), 420350882)
-//        }.start()
+        if (applicationType == "none") {
+            val filePrefix = "test_audio"
+            val wavFileName = "$filePrefix.wav"
+            println("offline mode. SpeechRecognizer init. Will recognize $wavFileName")
+            if (File(wavFileName).exists()) {
+                if (File("$filePrefix.txt").exists()) {
+                    println("Seems like audio already parsed: i see $filePrefix.txt exists. Skipping")
+                    return
+                }
+                Thread {
+                    recognize(FileInputStream(wavFileName), 420350882, "test_audio")
+                }.start()
+            } else {
+                println("file $wavFileName doesnt exists, skipping")
+            }
+        }
     }
 
-    fun recognize(inputStream: InputStream, fileSizeBytes: Long): String {
-        val fileId = System.currentTimeMillis().toString()
+    fun recognize(inputStream: InputStream, fileSizeBytes: Long, fileId: String): String {
         println("will recognize $fileId size $fileSizeBytes")
         var nbytes: Int
         val b = ByteArray(4096)

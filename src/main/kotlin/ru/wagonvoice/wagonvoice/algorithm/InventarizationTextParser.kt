@@ -1,22 +1,47 @@
-package ru.wagonvoice.wagonvoice
+package ru.wagonvoice.wagonvoice.algorithm
 
 import com.ibm.icu.text.RuleBasedNumberFormat
 import org.apache.commons.lang3.StringUtils
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.stereotype.Component
+import ru.wagonvoice.wagonvoice.CsvWriter
+import ru.wagonvoice.wagonvoice.Detail
 import java.io.File
+import java.io.FileInputStream
 import java.lang.StringBuilder
 import java.text.ParseException
 import java.util.Locale
+import javax.annotation.PostConstruct
 import kotlin.math.max
 
-fun main() = CsvWriter().write("localtest", InventarizationTextParser().parse("with-separator.txt"))
+//fun main() = CsvWriter().write("localtest", InventarizationTextParser().parse("with-separator.txt"))
 
 private const val DETAIL_NAME_FREQUENCY_THREESHOLD = 15
 private const val MAX_NUMBER_LENGTH = 6
 private const val CURRENT_YEAR = 2022
 private const val FACTORIES_UNDER_100 = true
 
+@Component
 class InventarizationTextParser {
     private val numberFormat = RuleBasedNumberFormat(Locale("ru"), RuleBasedNumberFormat.SPELLOUT)
+
+    @Value("\${spring.main.web-application-type:}")
+    private lateinit var applicationType: String
+
+    @PostConstruct
+    fun init() {
+        if (applicationType == "none") {
+            val textFileName = "test_audio.txt"
+            println("offline mode. InventarizationTextParser init. Will parse $textFileName")
+            if (File(textFileName).exists()) {
+                Thread {
+                    CsvWriter().write("test-audio", InventarizationTextParser().parse(textFileName))
+                }.start()
+            } else {
+                println("file $textFileName doesnt exists, skipping")
+            }
+        }
+    }
 
     fun parse(fileName: String): List<Detail> {
         println("will parse $fileName")
@@ -160,16 +185,17 @@ class InventarizationTextParser {
         for ((i, word) in wordsAfterNumber.withIndex()) {
             if (isFactoryWord(word)) {
                 if (fetchNumbersFromRightSide && i < wordsAfterNumber.size - 1 && isNumber(wordsAfterNumber[i + 1])) { //можно поискать справа от слова завод
-                    if (getNumber(wordsAfterNumber[i+1]) in 20..90 step 10) { // 2k
+                    if (getNumber(wordsAfterNumber[i + 1]) in 20..90 step 10) { // 2k
                         var tryFactory = -1
                         if (i < wordsAfterNumber.size - 2) {
-                            tryFactory = getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2]) //девяносто третий, итд - два слова
+                            tryFactory =
+                                getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2]) //девяносто третий, итд - два слова
                             if (tryFactory == -1) {
                                 tryFactory = getNumber(wordsAfterNumber[i + 1]) //девяностый итд - одно слово
                             }
                         }
                         factoriesWithConfidence.add(0, tryFactory.toString() to 80)
-                    } else if (getNumber(wordsAfterNumber[i+1]) in 1..19) {
+                    } else if (getNumber(wordsAfterNumber[i + 1]) in 1..19) {
                         val factoryNumber = getNumber(wordsAfterNumber[i + 1]).toString()
                         factoriesWithConfidence.add(0, factoryNumber to 70)
                     }
@@ -181,13 +207,13 @@ class InventarizationTextParser {
                 }
 
                 if (!fetchNumbersFromRightSide && i >= 1 && isNumber(wordsAfterNumber[i - 1])) { // можно поискать слева от слова завод
-                    if (i>=2 && getNumber(wordsAfterNumber[i-2]) in 20..90 step 10) { // 2k
+                    if (i >= 2 && getNumber(wordsAfterNumber[i - 2]) in 20..90 step 10) { // 2k
                         var tryFactory = -1
                         tryFactory = getNumber(wordsAfterNumber[i - 2] + " " + wordsAfterNumber[i - 1]) //девяносто третий, итд - два слова
                         if (tryFactory != -1) {
                             factoriesWithConfidence.add(0, tryFactory.toString() to 60)
                         }
-                    } else  {
+                    } else {
                         val factoryNumber = getNumber(wordsAfterNumber[i - 1]).toString()
                         factoriesWithConfidence.add(0, factoryNumber to 60)
                     }
@@ -355,7 +381,9 @@ class InventarizationTextParser {
         }
         println("potentialDetailNamesWithoutDuplicates without filter:")
         println(potentialDetailNamesWithoutDuplicates)
-        return potentialDetailNamesWithoutDuplicates.filterValues { it > DETAIL_NAME_FREQUENCY_THREESHOLD }.keys.toList() // уберем редкие варианты
+        val result =
+            potentialDetailNamesWithoutDuplicates.filterValues { it > DETAIL_NAME_FREQUENCY_THREESHOLD }.keys.toList()  // уберем редкие варианты
+        return result.ifEmpty { listOf(potentialDetailNamesWithoutDuplicates.keys.first()) }
     }
 
     private fun findDuplicate(

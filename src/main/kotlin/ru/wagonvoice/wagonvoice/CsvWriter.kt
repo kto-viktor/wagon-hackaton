@@ -1,8 +1,10 @@
 package ru.wagonvoice.wagonvoice
 
+import org.springframework.stereotype.Component
 import java.io.File
 import java.lang.StringBuilder
 
+@Component
 class CsvWriter {
     fun write(fileId: String, data: List<Detail>) {
         println("will write to $fileId.csv")

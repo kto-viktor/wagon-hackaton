@@ -1,4 +1,4 @@
-package ru.wagonvoice.wagonvoice
+package ru.wagonvoice.wagonvoice.web
 
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.config.annotation.CorsRegistry

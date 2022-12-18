@@ -39,3 +39,5 @@ out/
 ### audio and DS
 vosk-model-ru-0.22/
 *.wav
+*.txt
+*.csv

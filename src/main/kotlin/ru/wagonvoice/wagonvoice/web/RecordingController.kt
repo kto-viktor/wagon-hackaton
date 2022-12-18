@@ -1,4 +1,4 @@
-package ru.wagonvoice.wagonvoice
+package ru.wagonvoice.wagonvoice.web
 
 import org.springframework.core.io.Resource
 import org.springframework.http.HttpHeaders
@@ -21,7 +21,7 @@ class RecordingController(private val fileService: FileService) {
     fun download(@PathVariable fileId: String): ResponseEntity<Resource?>? {
         val file: Resource = fileService.downloadCsv(fileId)
         return ResponseEntity.ok()
-            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"$fileId\".txt")
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"$fileId\".csv")
             .body(file)
     }
 }
