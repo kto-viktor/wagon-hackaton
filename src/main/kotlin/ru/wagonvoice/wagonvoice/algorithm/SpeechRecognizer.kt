@@ -20,7 +20,7 @@ class SpeechRecognizer(private val model: Model, private val objectMapper: Objec
     @PostConstruct
     fun init() {
         if (applicationType == "none") {
-            val filePrefix = "test_audio"
+            val filePrefix = "train_audio"
             val wavFileName = "$filePrefix.wav"
             println("offline mode. SpeechRecognizer init. Will recognize $wavFileName")
             if (File(wavFileName).exists()) {
@@ -42,9 +42,13 @@ class SpeechRecognizer(private val model: Model, private val objectMapper: Objec
         var nbytes: Int
         val b = ByteArray(4096)
         val text = StringBuilder()
-        val ais = AudioSystem.getAudioInputStream(BufferedInputStream(inputStream)) // попробовать читать параллельно BufferedInputStream
+        val ais = AudioSystem.getAudioInputStream(BufferedInputStream(inputStream))
         var totalBytesRead = 0
-        val recognizer = Recognizer(model, 44100.0F)
+        val frameRate = ais.format.frameRate
+        if (frameRate != 44100.0F) {
+            println("framerate $frameRate is not recommended")
+        }
+        val recognizer = Recognizer(model, frameRate)
         var progressBarDivider: Long = 0
         while (ais.read(b).also { nbytes = it } >= 0) {
             if (recognizer.acceptWaveForm(b, nbytes)) {

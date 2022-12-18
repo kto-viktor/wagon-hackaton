@@ -1,5 +1,5 @@
 server.port: 81
-spring.main.web-application-type: none
+#spring.main.web-application-type: none
 
 ## Multipart config
 spring.servlet.multipart:
