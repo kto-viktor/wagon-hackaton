@@ -9,7 +9,9 @@ import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
+import java.util.concurrent.CompletableFuture
 import javax.annotation.PostConstruct
+import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
 
 @Service
@@ -20,7 +22,7 @@ class SpeechRecognizer(private val model: Model, private val objectMapper: Objec
     @PostConstruct
     fun init() {
         if (applicationType == "none") {
-            val filePrefix = "train_audio"
+            val filePrefix = "test_audio"
             val wavFileName = "$filePrefix.wav"
             println("offline mode. SpeechRecognizer init. Will recognize $wavFileName")
             if (File(wavFileName).exists()) {
@@ -29,7 +31,7 @@ class SpeechRecognizer(private val model: Model, private val objectMapper: Objec
                     return
                 }
                 Thread {
-                    recognize(FileInputStream(wavFileName), 420350882, "test_audio")
+                    recognizeParallel(wavFileName, filePrefix)
                 }.start()
             } else {
                 println("file $wavFileName doesnt exists, skipping")
@@ -66,5 +68,52 @@ class SpeechRecognizer(private val model: Model, private val objectMapper: Objec
         file.writeText(text.toString())
         println("####### recognized. written to $fileId.txt #########")
         return fileId
+    }
+
+    fun recognizeParallel(fileName: String, fileId: String): String {
+        println("will recognize $fileName at parallel")
+        val wavFile = File(fileName)
+        val ais = AudioSystem.getAudioInputStream(BufferedInputStream(FileInputStream(wavFile)))
+        val ais2 = AudioSystem.getAudioInputStream(BufferedInputStream(FileInputStream(wavFile)))
+        ais2.skip(wavFile.length()/2)
+
+        val futureText = CompletableFuture.supplyAsync { recognizeVoice(ais, wavFile.length()/2) }
+        val futureText2 = CompletableFuture.supplyAsync { recognizeVoice(ais2, wavFile.length()/2) }
+        CompletableFuture.allOf(futureText, futureText2).join()
+        val text = futureText.get()
+        val text2 = futureText2.get()
+        println(text)
+        println(text2)
+
+        val file = File("$fileId.txt")
+        file.writeText(text + text2)
+        println("####### recognized. written to $fileId.txt #########")
+        return fileId
+    }
+
+    private fun recognizeVoice(ais: AudioInputStream, size: Long): String {
+        var totalBytesRead = 0
+        val frameRate = ais.format.frameRate
+        if (frameRate != 44100.0F) {
+            println("framerate $frameRate is not recommended")
+        }
+        val recognizer = Recognizer(model, frameRate)
+        var progressBarDivider: Long = 0
+        val b = ByteArray(4096)
+        var nbytes: Int
+        val text = StringBuilder()
+        while (ais.read(b).also { nbytes = it } >= 0 && totalBytesRead<=size) {
+            if (recognizer.acceptWaveForm(b, nbytes)) {
+                val part = objectMapper.readTree(recognizer.result).get("text").textValue()
+                text.append("$part | ")
+            }
+            totalBytesRead += nbytes
+            progressBarDivider += 1
+            if (progressBarDivider % 100 == 0L) {
+                val progress = totalBytesRead.toDouble() / size.toDouble() * 100
+                println(Thread.currentThread().name + ": progress $progress%")
+            }
+        }
+        return text.toString()
     }
 }
