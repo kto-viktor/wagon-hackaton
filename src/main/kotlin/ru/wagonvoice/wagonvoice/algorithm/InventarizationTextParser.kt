@@ -35,7 +35,7 @@ class InventarizationTextParser {
             println("offline mode. InventarizationTextParser init. Will parse $textFileName")
             if (File(textFileName).exists()) {
                 Thread {
-                    CsvWriter().write("test-audio", InventarizationTextParser().parse(textFileName))
+                    CsvWriter().write("$textFileName.csv", InventarizationTextParser().parse(textFileName))
                 }.start()
             } else {
                 println("file $textFileName doesnt exists, skipping")
