@@ -26,8 +26,10 @@ class InventarizationParser {
         println("статистика по словам: $sortedWordsMap")
 
         val rows = str.split(Regex("[| ]следу[а-я]+[| ]")).toMutableList() // делим на строки по ключевому слову следующая, следующий итд
-        val trashWords = setOf("вот", "это", "да", "в", "я", "так", "еще", "есть", "что", "у",
-            "все", "с", "меня", "сейчас", "нету", "а", "какой", "как", "за", "если")
+        val trashWords = setOf(
+            "вот", "это", "да", "в", "я", "так", "еще", "есть", "что", "у",
+            "все", "с", "меня", "сейчас", "нету", "а", "какой", "как", "за", "если"
+        )
         // большинство строк начинаются с названия детали
         val potentialDetailNames =
             getPotentialDetailNames(rows) // пытаемся достоверно найти перечень названия деталей путем матчинга первых слов
@@ -39,41 +41,41 @@ class InventarizationParser {
         var successNumbersCount = 0
         rows.forEach { row ->
             try {
-            val parts = row.split("|").filter { it.isNotEmpty() }.map { it.trim().split(" ") }
-            val yearsWithConfidence = parseYear(parts)
-            val rowWords = row.split(" ").minus(trashWords)
-            detailName = getDetailName(row, potentialDetailNames, detailName, rowWords)
-            val (number, numberIndex) = findNumber(rowWords)
-            if (Constants.CORRECT_NUMS.contains(number.toString())) {
-                successNumbersCount += 1
-            }
+                val parts = row.split("|").filter { it.isNotEmpty() }.map { it.trim().split(" ") }
+                val yearsWithConfidence = parseYear(parts)
+                val rowWords = row.split(" ").minus(trashWords)
+                detailName = getDetailName(row, potentialDetailNames, detailName, rowWords)
+                val (number, numberIndex) = findNumber(rowWords)
+                if (Constants.CORRECT_NUMS.contains(number.toString())) {
+                    successNumbersCount += 1
+                }
 
-            var year = 0
-            val wordsAfterNumber = rowWords.subList(numberIndex, rowWords.size)
-            for ((i, word) in wordsAfterNumber.withIndex()) {
-                if (isYearWord(word)) {
-                    if (i<wordsAfterNumber.size-1 && isNumber(wordsAfterNumber[i+1])) { //можно поискать справа от слова год
-                        if (wordsAfterNumber[i + 1].startsWith("дв") && i<wordsAfterNumber.size-3) { // 2k
-                            if (getNumber(wordsAfterNumber[i + 2]) == 1000) { //2k++
-                                if (wordsAfterNumber[i + 2].endsWith("ый")) {
-                                    year = 2000
-                                } else if (getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2] + " " + wordsAfterNumber[i + 3]) in 2000..2022) {
-                                    year =
-                                        getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2] + " " + wordsAfterNumber[i + 3])
+                var year = 0
+                val wordsAfterNumber = rowWords.subList(numberIndex, rowWords.size)
+                for ((i, word) in wordsAfterNumber.withIndex()) {
+                    if (isYearWord(word)) {
+                        if (i < wordsAfterNumber.size - 1 && isNumber(wordsAfterNumber[i + 1])) { //можно поискать справа от слова год
+                            if (wordsAfterNumber[i + 1].startsWith("дв") && i < wordsAfterNumber.size - 3) { // 2k
+                                if (getNumber(wordsAfterNumber[i + 2]) == 1000) { //2k++
+                                    if (wordsAfterNumber[i + 2].endsWith("ый")) {
+                                        year = 2000
+                                    } else if (getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2] + " " + wordsAfterNumber[i + 3]) in 2000..CURRENT_YEAR) {
+                                        year =
+                                            getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2] + " " + wordsAfterNumber[i + 3])
+                                    }
                                 }
                             }
-                        }
-                    } else if (i>1 && isNumber(wordsAfterNumber[i-1])) { // можно поискать слева от слова год
+                        } else if (i > 1 && isNumber(wordsAfterNumber[i - 1])) { // можно поискать слева от слова год
 
+                        }
                     }
                 }
-            }
-            println(wordsAfterNumber)
-            if (year != 0) {
-                println("+++++++ $year")
-            }
-            //println(">>>$yearsWithConfidence")
-            //println(detailName)
+                println(wordsAfterNumber)
+                if (year != 0) {
+                    println("+++++++ $year")
+                }
+                //println(">>>$yearsWithConfidence")
+                //println(detailName)
             } catch (e: Exception) {
                 println("ERROR:")
                 e.printStackTrace()
