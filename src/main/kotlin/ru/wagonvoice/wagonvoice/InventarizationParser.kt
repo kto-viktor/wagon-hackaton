@@ -11,6 +11,7 @@ fun main() = InventarizationParser().parse("with-separator.txt")
 
 private const val DETAIL_NAME_FREQUENCY_THREESHOLD = 15
 private const val MAX_NUMBER_LENGTH = 6
+private const val CURRENT_YEAR = 2022
 
 class InventarizationParser {
     private val numberFormat = RuleBasedNumberFormat(Locale("ru"), RuleBasedNumberFormat.SPELLOUT)
@@ -25,7 +26,7 @@ class InventarizationParser {
         println("статистика по словам: $sortedWordsMap")
 
         val rows = str.split(Regex("[| ]следу[а-я]+[| ]")).toMutableList() // делим на строки по ключевому слову следующая, следующий итд
-        val trashWords = listOf("вот", "это", "да", "в", "я", "так", "еще", "есть", "что", "у",
+        val trashWords = setOf("вот", "это", "да", "в", "я", "так", "еще", "есть", "что", "у",
             "все", "с", "меня", "сейчас", "нету", "а", "какой", "как", "за", "если")
         // большинство строк начинаются с названия детали
         val potentialDetailNames =
@@ -35,74 +36,107 @@ class InventarizationParser {
         rows[0] = rows[0].removePrefix("начало записи ")
         var detailName = potentialDetailNames[0] // хитрость - мы будем каждый раз сохранять наименование последней детали,
         // иx как правило смотрят одни и те же подряд
+        var successNumbersCount = 0
         rows.forEach { row ->
-            //println(row)
+            try {
             val parts = row.split("|").filter { it.isNotEmpty() }.map { it.trim().split(" ") }
             val yearsWithConfidence = parseYear(parts)
-            detailName = getDetailName(row, potentialDetailNames, detailName, words)
-            val words = row.split(" ")
-            var numberStarts = false
-            var previous = -1
-            val number = StringBuilder()
-            println(row)
-            for (word in words) {
-                if (word.contains("|")) continue
-                val num = getNumber(word)
-                if (num > 0) numberStarts = true
-                if (!row.contains("двадцать девять девятьсот шесть")) break
-                if (numberStarts && num != -1) {
-                    if ((100..900 step 100).contains(previous)) {
-                        if (num < 100) {
-                            previous += num
-                        } else {
-                            if (number.length + previous.toString().length > MAX_NUMBER_LENGTH) break;
-                            number.append(previous)
-                            previous = num
+            val rowWords = row.split(" ").minus(trashWords)
+            detailName = getDetailName(row, potentialDetailNames, detailName, rowWords)
+            val (number, numberIndex) = findNumber(rowWords)
+            if (Constants.CORRECT_NUMS.contains(number.toString())) {
+                successNumbersCount += 1
+            }
+
+            var year = 0
+            val wordsAfterNumber = rowWords.subList(numberIndex, rowWords.size)
+            for ((i, word) in wordsAfterNumber.withIndex()) {
+                if (isYearWord(word)) {
+                    if (i<wordsAfterNumber.size-1 && isNumber(wordsAfterNumber[i+1])) { //можно поискать справа от слова год
+                        if (wordsAfterNumber[i + 1].startsWith("дв") && i<wordsAfterNumber.size-3) { // 2k
+                            if (getNumber(wordsAfterNumber[i + 2]) == 1000) { //2k++
+                                if (wordsAfterNumber[i + 2].endsWith("ый")) {
+                                    year = 2000
+                                } else if (getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2] + " " + wordsAfterNumber[i + 3]) in 2000..2022) {
+                                    year =
+                                        getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2] + " " + wordsAfterNumber[i + 3])
+                                }
+                            }
                         }
-                    } else if (previous > 10 && previous % 10 == 0) {
-                        if (num < 10) {
-                            previous += num
-                            if (number.length + previous.toString().length > MAX_NUMBER_LENGTH) break;
-                            number.append(previous)
-                            previous = -1
-                        } else {
-                            if (number.length + previous.toString().length > MAX_NUMBER_LENGTH) break;
-                            number.append(previous)
-                            previous = num
-                        }
-                    } else if (previous == -1) {
-                        if (num < 20) {
-                            if (number.length + previous.toString().length > MAX_NUMBER_LENGTH) break;
-                            number.append(num)
-                        } else {
-                            previous = num
-                        }
+                    } else if (i>1 && isNumber(wordsAfterNumber[i-1])) { // можно поискать слева от слова год
+
                     }
-                }
-                if (num == -1 && numberStarts) { // мы встретили не число
-                    if (number.length in 4..6) {
-                        break;
-                    }  else if (number.length <= 3 && previous != -1) {
-                        number.append(previous)
-                        numberStarts = false
-                        number.clear()
-                    } else {
-                        numberStarts = false
-                        number.clear()
-                    }
-                }
-                if (number.length == 6) {
-                    break;
                 }
             }
-            if (Constants.CORRECT_NUMS.contains(number.toString())) {
-                println("+++++++++++++++++++++++++++++++++++++++")
-            } else {
-                println("!!!!!    $number        !!!!!!")
+            println(wordsAfterNumber)
+            if (year != 0) {
+                println("+++++++ $year")
             }
             //println(">>>$yearsWithConfidence")
             //println(detailName)
+            } catch (e: Exception) {
+                println("ERROR:")
+                e.printStackTrace()
+            }
         }
+        println("successnums $successNumbersCount")
+    }
+
+    private fun findNumber(words: List<String>): Pair<StringBuilder, Int> {
+        var numberIndex = 0
+        var numberStarts = false
+        var previous = -1
+        val number = StringBuilder()
+        for ((i, word) in words.withIndex()) {
+            numberIndex = i // поиск года и завода начнем уже после номера, поэтому запоминаем
+            if (word.contains("|")) continue
+            val num = getNumberInSubjectiveCase(word)
+            if (num > 0) numberStarts = true
+            if (numberStarts && num != -1) {
+                if ((100..900 step 100).contains(previous)) {
+                    if (num < 100) {
+                        previous += num
+                    } else {
+                        if (number.length + previous.toString().length > MAX_NUMBER_LENGTH) break;
+                        number.append(previous)
+                        previous = num
+                    }
+                } else if (previous > 10 && previous % 10 == 0) {
+                    if (num < 10) {
+                        previous += num
+                        if (number.length + previous.toString().length > MAX_NUMBER_LENGTH) break;
+                        number.append(previous)
+                        previous = -1
+                    } else {
+                        if (number.length + previous.toString().length > MAX_NUMBER_LENGTH) break;
+                        number.append(previous)
+                        previous = num
+                    }
+                } else if (previous == -1) {
+                    if (num < 20) {
+                        if (number.length + previous.toString().length > MAX_NUMBER_LENGTH) break;
+                        number.append(num)
+                    } else {
+                        previous = num
+                    }
+                }
+            }
+            if (num == -1 && numberStarts) { // мы встретили не число
+                if (number.length in 4..6) {
+                    break
+                } else if (number.length <= 3 && previous != -1) {
+                    number.append(previous)
+                    break
+                } else { // чето не угадали - длинна не подходит
+                    numberStarts = false
+                    number.clear()
+                }
+            }
+            if (number.length == 6) {
+                break;
+            }
+        }
+        return number to numberIndex
     }
 
     private fun parseYear(parts: List<List<String>>) {
@@ -150,11 +184,23 @@ class InventarizationParser {
         }
     }
 
+    // когда диктуют номер, числа называют в именительном падеже
+    // потом могут сразу называть год в другом падеже (номер сто пять двенадцать пятнадцатый год)
+    private fun getNumberInSubjectiveCase(word: String): Int {
+        if (word.startsWith("тысяч")) return 1000
+        if (word == "две" || word.endsWith("й")) return -1
+        return try {
+            numberFormat.parse(word).toInt()
+        } catch (e: ParseException) {
+            -1
+        }
+    }
+
     private fun getDetailName(
         row: String,
         potentialDetailNames: List<String>,
         previousDetailName: String,
-        words: MutableList<String>
+        words: List<String>
     ): String {
         val beforeNumber = row.split("номер")[0]
         potentialDetailNames.forEach { potentialName ->
