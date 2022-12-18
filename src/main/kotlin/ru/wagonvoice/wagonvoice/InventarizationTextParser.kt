@@ -8,20 +8,21 @@ import java.text.ParseException
 import java.util.Locale
 import kotlin.math.max
 
-fun main() = InventarizationParser().parse("with-separator.txt")
+fun main() = CsvWriter().write("localtest", InventarizationTextParser().parse("with-separator.txt"))
 
 private const val DETAIL_NAME_FREQUENCY_THREESHOLD = 15
 private const val MAX_NUMBER_LENGTH = 6
 private const val CURRENT_YEAR = 2022
 private const val FACTORIES_UNDER_100 = true
 
-class InventarizationParser {
+class InventarizationTextParser {
     private val numberFormat = RuleBasedNumberFormat(Locale("ru"), RuleBasedNumberFormat.SPELLOUT)
 
-    fun parse(fileName: String) {
+    fun parse(fileName: String): List<Detail> {
+        println("will parse $fileName")
         val str = File(fileName).readText().replace("ё", "е")
 
-        // вспомогательная статистика для анализа текста, не используется
+        // вспомогательная статистика для анализа текста
         val words: MutableList<String> = str.split(" ").toMutableList()
         val countedWordsMap: Map<String, Int> = words.groupingBy { it }.eachCount()
         val sortedWordsMap = countedWordsMap.toList().sortedByDescending { it.second }.toMap()
@@ -37,14 +38,12 @@ class InventarizationParser {
             getPotentialDetailNames(rows) // пытаемся достоверно найти перечень названия деталей путем матчинга первых слов
         println("potential details names after filtering:")
         println(potentialDetailNames)
-        rows[0] = rows[0].removePrefix("начало записи ")
+        rows[0] = rows[0].removePrefix("начало записи ") // ну, погнали
         var detailName = potentialDetailNames[0] // хитрость - мы будем каждый раз сохранять наименование последней детали,
-        // иx как правило смотрят одни и те же подряд
-        var successNumbersCount = 0
+        // иx, как правило, смотрят одни и те же подряд
+        val result = mutableListOf<Detail>()
         rows.forEach { row ->
             try {
-                val parts = row.split("|").filter { it.isNotEmpty() }.map { it.trim().split(" ") }
-                //val yearsWithConfidence = parseYear(parts)
                 val rowWords = row.split(" ").minus(trashWords)
                 detailName = getDetailName(row, potentialDetailNames, detailName, rowWords)
                 val (number, numberIndex) = findNumber(rowWords)
@@ -63,13 +62,17 @@ class InventarizationParser {
                 val year = yearsWithConfidence.firstOrNull()?.first ?: ""
                 factoriesWithConfidence.sortBy { it.second }
                 val factory = factoriesWithConfidence.firstOrNull()?.first ?: ""
-                println(row)
-                println(">>> $detailName $number год $year завод $factory")
+                println()
+                println("было: $row")
+                println("стало: $detailName $number год $year завод $factory")
+                result.add(Detail(detailName, number.toString(), year.toString(), factory))
             } catch (e: Exception) {
                 println("ERROR:")
                 e.printStackTrace()
             }
         }
+        println("###### parsed. Result size is ${result.size} rows #######")
+        return result
     }
 
     private fun findYears(

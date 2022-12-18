@@ -24,6 +24,7 @@ class SpeechRecognizer(private val model: Model, private val objectMapper: Objec
 
     fun recognize(inputStream: InputStream, fileSizeBytes: Long): String {
         val fileId = System.currentTimeMillis().toString()
+        println("will recognize $fileId size $fileSizeBytes")
         var nbytes: Int
         val b = ByteArray(4096)
         val text = StringBuilder()
@@ -45,7 +46,7 @@ class SpeechRecognizer(private val model: Model, private val objectMapper: Objec
         }
         val file = File("$fileId.txt")
         file.writeText(text.toString())
-        println("written to $fileId.txt")
+        println("####### recognized. written to $fileId.txt #########")
         return fileId
     }
 }
