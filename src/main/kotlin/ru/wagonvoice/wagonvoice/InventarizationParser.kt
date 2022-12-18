@@ -59,12 +59,12 @@ class InventarizationParser {
                 val yearsWithConfidence = findYears(wordsAfterNumber, fetchNumbersFromRightSide, row, rowWords)
                 val factoriesWithConfidence = findFactories(wordsAfterNumber, fetchNumbersFromRightSide, row, rowWords)
 
-                println(wordsAfterNumber)
-                if (factoriesWithConfidence.isNotEmpty()) {
-                    println("+++++++$factoriesWithConfidence")
-                }
-                //println(">>>$yearsWithConfidence")
-                //println(detailName)
+                yearsWithConfidence.sortBy { it.second }
+                val year = yearsWithConfidence.firstOrNull()?.first ?: ""
+                factoriesWithConfidence.sortBy { it.second }
+                val factory = factoriesWithConfidence.firstOrNull()?.first ?: ""
+                println(row)
+                println(">>> $detailName $number год $year завод $factory")
             } catch (e: Exception) {
                 println("ERROR:")
                 e.printStackTrace()
@@ -249,36 +249,6 @@ class InventarizationParser {
             }
         }
         return number to numberIndex
-    }
-
-    private fun parseYear(parts: List<List<String>>) {
-        val yearsWithConfidence: MutableList<Pair<Int, Int>> = mutableListOf()
-        parts.filter { it.any { word -> isYearWord(word) } }
-            .forEach { part ->
-                if (part.none { word -> word == "завод" || word == "зовут" }) {
-                    val cleanPart = part.filter { isNumber(it) || isYearWord(it) }
-                    val indexOfYearWord = cleanPart.indexOfFirst { isYearWord(it) }
-                    val start = cleanPart.subList(indexOfYearWord, cleanPart.size).indexOfFirst { isNumber(it) } + indexOfYearWord
-                    if (start != -1) {
-                        val nextNum = getNumber(cleanPart[start])
-                        if (nextNum == 2 && getNumber(cleanPart[start + 1]) == 1000) {
-                            val tryYear = getNumber(cleanPart[start] + " " + cleanPart[start + 1] + " " + cleanPart[start + 2])
-                            if (tryYear != -1) {
-                                yearsWithConfidence.add(tryYear to 99)
-                            } else {
-                                val check2k = getNumber(cleanPart[start] + " " + cleanPart[start + 1])
-                                if (check2k == 2000) {
-                                    yearsWithConfidence.add(2000 to 70)
-                                }
-                            }
-                        } else if (nextNum in 0..22) {
-                            yearsWithConfidence.add(2000 + nextNum to 90)
-                        } else if (nextNum % 10 == 0 && isNumber(cleanPart[start] + " " + cleanPart[start + 1])) {
-                            yearsWithConfidence.add(1900 + getNumber(cleanPart[start] + " " + cleanPart[start + 1]) to 80)
-                        }
-                    }
-                }
-            }
     }
 
     private fun isYearWord(it: String) = it == "год" || it == "код" // || it == "вот"
