@@ -6,6 +6,7 @@ import java.io.File
 import java.lang.StringBuilder
 import java.text.ParseException
 import java.util.Locale
+import kotlin.math.max
 
 fun main() = InventarizationParser().parse("with-separator.txt")
 
@@ -52,32 +53,58 @@ class InventarizationParser {
 
                 val wordsAfterNumber = rowWords.subList(numberIndex, rowWords.size)
 
+                val yearIndex = wordsAfterNumber.indexOfFirst { isYearWord(it) }
+                val factoryIndex = wordsAfterNumber.indexOfFirst { isFactoryWord(it) }
+                val maxIndex = max(yearIndex, factoryIndex)
+                val fetchNumbersFromRightSide = maxIndex < wordsAfterNumber.size - 1 && isNumber(wordsAfterNumber[maxIndex + 1])
+
                 val yearsWithConfidence = mutableListOf<Pair<Int, Int>>()
                 for ((i, word) in wordsAfterNumber.withIndex()) {
                     if (isYearWord(word)) {
-                        if (i < wordsAfterNumber.size - 1 && isNumber(wordsAfterNumber[i + 1])) { //можно поискать справа от слова год
+                        if (fetchNumbersFromRightSide && i < wordsAfterNumber.size - 1 && isNumber(wordsAfterNumber[i + 1])) { //можно поискать справа от слова год
                             if (wordsAfterNumber[i + 1].startsWith("дв") && i < wordsAfterNumber.size - 3) { // 2k
                                 if (getNumber(wordsAfterNumber[i + 2]) == 1000) { //2k++
                                     if (wordsAfterNumber[i + 2].endsWith("ый")) {
                                         yearsWithConfidence.add(2000 to 60)
                                     } else if (getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2] + " " + wordsAfterNumber[i + 3]) in 2000..CURRENT_YEAR) {
-                                        val year = getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2] + " " + wordsAfterNumber[i + 3])
+                                        val year =
+                                            getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2] + " " + wordsAfterNumber[i + 3])
                                         yearsWithConfidence.add(year to 99)
                                     }
                                 }
                             }
+                            else if (getNumber(wordsAfterNumber[i+1]) in 0 .. 19) {
+                                val tryYear = getNumber(wordsAfterNumber[i+1]) + 2000
+                                yearsWithConfidence.add(tryYear to 85)
+                            } else if (getNumber(wordsAfterNumber[i+1]) in 20 .. 90 step 10) {
+                                var tryYear = -1
+                                if (i<wordsAfterNumber.size-2) {
+                                    tryYear = getNumber(wordsAfterNumber[i+1] + " " + wordsAfterNumber[i+2]) //девяносто третий, итд - два слова
+                                    if(tryYear == -1) {
+                                        tryYear = getNumber(wordsAfterNumber[i+1]) //девяностый итд - одно слово
+                                    }
+                                }
+                                if (tryYear in 20..CURRENT_YEAR % 2000) {
+                                    tryYear += 2000
+                                    yearsWithConfidence.add(tryYear to 82)
+                                } else if (tryYear in 50..99) {
+                                    tryYear += 1900
+                                    yearsWithConfidence.add(tryYear to 82)
+                                }
+                            }
                         }
 
-                        if (i >= 1 && isNumber(wordsAfterNumber[i - 1])) { // можно поискать слева от слова год
-                            if (i>=3 && wordsAfterNumber[i-3].startsWith("дв")) { //2kxxx
-                                val tryYear = getNumber(wordsAfterNumber[i-3] + " " + wordsAfterNumber[i-2] + " " + wordsAfterNumber[i-1])
+                        if (!fetchNumbersFromRightSide && i >= 1 && isNumber(wordsAfterNumber[i - 1])) { // можно поискать слева от слова год
+                            if (i >= 3 && wordsAfterNumber[i - 3].startsWith("дв")) { //2kxxx
+                                val tryYear =
+                                    getNumber(wordsAfterNumber[i - 3] + " " + wordsAfterNumber[i - 2] + " " + wordsAfterNumber[i - 1])
                                 if (tryYear in 2000..CURRENT_YEAR) {
                                     yearsWithConfidence.add(tryYear to 99)
                                 }
                             }
-                            if ((i>=2 && wordsAfterNumber[i-2].startsWith("дв")) || wordsAfterNumber[i-1].startsWith("дв")) { //2000
-                                var tryYear = getNumber(wordsAfterNumber[i-2] + " " + wordsAfterNumber[i-1]) //двух тысячный, две тысячи
-                                if (tryYear == -1) tryYear = getNumber(wordsAfterNumber[i-1]) // двухтысячный
+                            if ((i >= 2 && wordsAfterNumber[i - 2].startsWith("дв")) || wordsAfterNumber[i - 1].startsWith("дв")) { //2000
+                                var tryYear = getNumber(wordsAfterNumber[i - 2] + " " + wordsAfterNumber[i - 1]) //двух тысячный, две тысячи
+                                if (tryYear == -1) tryYear = getNumber(wordsAfterNumber[i - 1]) // двухтысячный
                                 if (tryYear in 2000..CURRENT_YEAR) {
                                     yearsWithConfidence.add(tryYear to 80)
                                 }
@@ -87,17 +114,18 @@ class InventarizationParser {
                 }
                 if (yearsWithConfidence.isEmpty()) {
                     if (row.contains("тысяч")) {
-                        val thousandWordIndex = rowWords.indexOfFirst { getNumber(it)==1000 }
-                        val tryYear = getNumber(rowWords[thousandWordIndex-1] + " " + rowWords[thousandWordIndex] + " " + rowWords[thousandWordIndex+1])
+                        val thousandWordIndex = rowWords.indexOfFirst { getNumber(it) == 1000 }
+                        val tryYear =
+                            getNumber(rowWords[thousandWordIndex - 1] + " " + rowWords[thousandWordIndex] + " " + rowWords[thousandWordIndex + 1])
                         if (tryYear in 2000..CURRENT_YEAR) {
                             yearsWithConfidence.add(tryYear to 50) // либо да, либо нет :))
                         }
                     }
                 }
 
-                println(row)
+                println(wordsAfterNumber)
                 if (yearsWithConfidence.isNotEmpty()) {
-                    println("+++++++ $yearsWithConfidence")
+                    println("+++++++$yearsWithConfidence")
                 }
                 //println(">>>$yearsWithConfidence")
                 //println(detailName)
@@ -106,7 +134,6 @@ class InventarizationParser {
                 e.printStackTrace()
             }
         }
-        println("successnums $successNumbersCount")
     }
 
     private fun findNumber(words: List<String>): Pair<StringBuilder, Int> {
@@ -197,6 +224,7 @@ class InventarizationParser {
     }
 
     private fun isYearWord(it: String) = it == "год" || it == "код" // || it == "вот"
+    private fun isFactoryWord(it: String) = it == "завод" || it == "зовут"
 
     private fun isNumber(word: String): Boolean {
         return getNumber(word) != -1
