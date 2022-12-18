@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="145px" height="92px" viewBox="0 0 145 92" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 3.7.2 (28276) - http://www.bohemiancoding.com/sketch -->
+    <title> </title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <rect id="path-1" x="0" y="0" width="145" height="92"></rect>
+        <mask id="mask-2" maskContentUnits="userSpaceOnUse" maskUnits="objectBoundingBox" x="0" y="0" width="145" height="92" fill="white">
+            <use xlink:href="#path-1"></use>
+        </mask>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <use id="Rectangle-796-Copy-104" stroke="#000000" mask="url(#mask-2)" stroke-width="5" xlink:href="#path-1"></use>
+        <polygon id="Path-3624" stroke="#000000" stroke-width="2.5" points="56.5940594 60.2791474 88.2225015 60.2791474 79.6312211 31.6557377 73.6709899 50.4551493 68.3591114 43.2687744"></polygon>
+        <ellipse id="Oval-280" stroke="#000000" stroke-width="2.5" cx="61.1386139" cy="30.147541" rx="3.02970297" ry="3.01639344"></ellipse>
+    </g>
+</svg>

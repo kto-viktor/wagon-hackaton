@@ -73,20 +73,20 @@ class SpeechRecognizer(private val model: Model, private val objectMapper: Objec
     fun recognizeParallel(fileName: String, fileId: String): String {
         println("will recognize $fileName at parallel")
         val wavFile = File(fileName)
-        val ais = AudioSystem.getAudioInputStream(BufferedInputStream(FileInputStream(wavFile)))
-        val ais2 = AudioSystem.getAudioInputStream(BufferedInputStream(FileInputStream(wavFile)))
-        ais2.skip(wavFile.length()/2)
+        val audioStreams = mutableListOf<AudioInputStream>()
+        val threads = 8
+        for (i in 0 until threads) {
+            val stream = AudioSystem.getAudioInputStream(BufferedInputStream(FileInputStream(wavFile)))
+            audioStreams.add(stream)
+            stream.skip(i*wavFile.length()/threads)
+        }
 
-        val futureText = CompletableFuture.supplyAsync { recognizeVoice(ais, wavFile.length()/2) }
-        val futureText2 = CompletableFuture.supplyAsync { recognizeVoice(ais2, wavFile.length()/2) }
-        CompletableFuture.allOf(futureText, futureText2).join()
-        val text = futureText.get()
-        val text2 = futureText2.get()
-        println(text)
-        println(text2)
+        val futures: List<CompletableFuture<String>> = audioStreams.map { CompletableFuture.supplyAsync { recognizeVoice(it, wavFile.length()/threads) } }
+        CompletableFuture.allOf(*futures.toTypedArray()).join()
+        val text = futures.joinToString("") { it.get() }
 
         val file = File("$fileId.txt")
-        file.writeText(text + text2)
+        file.writeText(text)
         println("####### recognized. written to $fileId.txt #########")
         return fileId
     }
