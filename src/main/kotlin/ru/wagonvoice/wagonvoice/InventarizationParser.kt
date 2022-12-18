@@ -42,7 +42,7 @@ class InventarizationParser {
         rows.forEach { row ->
             try {
                 val parts = row.split("|").filter { it.isNotEmpty() }.map { it.trim().split(" ") }
-                val yearsWithConfidence = parseYear(parts)
+                //val yearsWithConfidence = parseYear(parts)
                 val rowWords = row.split(" ").minus(trashWords)
                 detailName = getDetailName(row, potentialDetailNames, detailName, rowWords)
                 val (number, numberIndex) = findNumber(rowWords)
@@ -50,29 +50,54 @@ class InventarizationParser {
                     successNumbersCount += 1
                 }
 
-                var year = 0
                 val wordsAfterNumber = rowWords.subList(numberIndex, rowWords.size)
+
+                val yearsWithConfidence = mutableListOf<Pair<Int, Int>>()
                 for ((i, word) in wordsAfterNumber.withIndex()) {
                     if (isYearWord(word)) {
                         if (i < wordsAfterNumber.size - 1 && isNumber(wordsAfterNumber[i + 1])) { //можно поискать справа от слова год
                             if (wordsAfterNumber[i + 1].startsWith("дв") && i < wordsAfterNumber.size - 3) { // 2k
                                 if (getNumber(wordsAfterNumber[i + 2]) == 1000) { //2k++
                                     if (wordsAfterNumber[i + 2].endsWith("ый")) {
-                                        year = 2000
+                                        yearsWithConfidence.add(2000 to 60)
                                     } else if (getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2] + " " + wordsAfterNumber[i + 3]) in 2000..CURRENT_YEAR) {
-                                        year =
-                                            getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2] + " " + wordsAfterNumber[i + 3])
+                                        val year = getNumber(wordsAfterNumber[i + 1] + " " + wordsAfterNumber[i + 2] + " " + wordsAfterNumber[i + 3])
+                                        yearsWithConfidence.add(year to 99)
                                     }
                                 }
                             }
-                        } else if (i > 1 && isNumber(wordsAfterNumber[i - 1])) { // можно поискать слева от слова год
+                        }
 
+                        if (i >= 1 && isNumber(wordsAfterNumber[i - 1])) { // можно поискать слева от слова год
+                            if (i>=3 && wordsAfterNumber[i-3].startsWith("дв")) { //2kxxx
+                                val tryYear = getNumber(wordsAfterNumber[i-3] + " " + wordsAfterNumber[i-2] + " " + wordsAfterNumber[i-1])
+                                if (tryYear in 2000..CURRENT_YEAR) {
+                                    yearsWithConfidence.add(tryYear to 99)
+                                }
+                            }
+                            if ((i>=2 && wordsAfterNumber[i-2].startsWith("дв")) || wordsAfterNumber[i-1].startsWith("дв")) { //2000
+                                var tryYear = getNumber(wordsAfterNumber[i-2] + " " + wordsAfterNumber[i-1]) //двух тысячный, две тысячи
+                                if (tryYear == -1) tryYear = getNumber(wordsAfterNumber[i-1]) // двухтысячный
+                                if (tryYear in 2000..CURRENT_YEAR) {
+                                    yearsWithConfidence.add(tryYear to 80)
+                                }
+                            }
                         }
                     }
                 }
-                println(wordsAfterNumber)
-                if (year != 0) {
-                    println("+++++++ $year")
+                if (yearsWithConfidence.isEmpty()) {
+                    if (row.contains("тысяч")) {
+                        val thousandWordIndex = rowWords.indexOfFirst { getNumber(it)==1000 }
+                        val tryYear = getNumber(rowWords[thousandWordIndex-1] + " " + rowWords[thousandWordIndex] + " " + rowWords[thousandWordIndex+1])
+                        if (tryYear in 2000..CURRENT_YEAR) {
+                            yearsWithConfidence.add(tryYear to 50) // либо да, либо нет :))
+                        }
+                    }
+                }
+
+                println(row)
+                if (yearsWithConfidence.isNotEmpty()) {
+                    println("+++++++ $yearsWithConfidence")
                 }
                 //println(">>>$yearsWithConfidence")
                 //println(detailName)
@@ -171,7 +196,7 @@ class InventarizationParser {
             }
     }
 
-    private fun isYearWord(it: String) = it == "год" || it == "код"
+    private fun isYearWord(it: String) = it == "год" || it == "код" // || it == "вот"
 
     private fun isNumber(word: String): Boolean {
         return getNumber(word) != -1
